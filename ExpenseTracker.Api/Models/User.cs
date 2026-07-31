@@ -13,6 +13,9 @@ namespace ExpenseTracker.Api.Models
         [Required]
         public string PasswordHash { get; set; } = string.Empty;
 
+        [Required]
+        public string FullName { get; set; } = string.Empty;
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation property: one User has many Categories
