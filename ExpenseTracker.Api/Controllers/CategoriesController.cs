@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using ExpenseTracker.Api.Data;
 using ExpenseTracker.Api.Models;
 using ExpenseTracker.Api.DTOs;
@@ -8,6 +10,7 @@ namespace ExpenseTracker.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class CategoriesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -16,11 +19,20 @@ namespace ExpenseTracker.Api.Controllers
             _context = context;
         }
 
+        private int GetCurrentUserId()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
+            return int.Parse(userIdClaim);
+        }
+
         // GET: api/categories
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CategoryDto>>> GetCategories()
         {
+            var userId = GetCurrentUserId();
+
             var categories = await _context.Categories
+                .Where(c => c.UserId == userId)
                 .Select(c => new CategoryDto
                 {
                 Id = c.Id,
@@ -28,6 +40,7 @@ namespace ExpenseTracker.Api.Controllers
                 MonthlyBudgetLimit = c.MonthlyBudgetLimit
                 })
                 .ToListAsync();
+
             return Ok(categories);
 
         }
@@ -36,7 +49,11 @@ namespace ExpenseTracker.Api.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<CategoryDto>> GetCategory(int id)
         {
-            var category = await _context.Categories.FindAsync(id);
+            var userId = GetCurrentUserId();
+
+            var category = await _context.Categories
+                .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
+
 
             if (category == null)
                 return NotFound();
@@ -55,11 +72,13 @@ namespace ExpenseTracker.Api.Controllers
         [HttpPost]
         public async Task<ActionResult<CategoryDto>> CreateCategory(CreateCategoryDto createDto)
         {
+            var userId = GetCurrentUserId();
+
             var category = new Category
             {
                 Name = createDto.Name,
                 MonthlyBudgetLimit = createDto.MonthlyBudgetLimit,
-                UserId = 1 // temporary hardcoded value until Day 3 auth is added
+                UserId = userId
             };
 
             _context.Categories.Add(category);
@@ -80,7 +99,11 @@ namespace ExpenseTracker.Api.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateCategory(int id, CreateCategoryDto updateDto)
         {
-            var category = await _context.Categories.FindAsync(id);
+
+            var userId = GetCurrentUserId();
+
+            var category = await _context.Categories
+                .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
 
             if (category == null)
                 return NotFound();
@@ -97,7 +120,10 @@ namespace ExpenseTracker.Api.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCategory(int id)
         {
-            var category = await _context.Categories.FindAsync(id);
+            var userId = GetCurrentUserId();
+
+            var category = await _context.Categories
+                .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
 
             if (category == null)
                 return NotFound();
